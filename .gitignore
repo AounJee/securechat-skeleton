@@ -1,0 +1,7 @@
+certs/*.key
+certs/*.pem     # optionally if some private files risk leaking
+.env
+db_dump.sql
+*.sqlite
+__pycache__/
+*.pyc
