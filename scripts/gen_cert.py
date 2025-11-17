@@ -4,6 +4,7 @@ gen_cert.py
 Usage:
   python3 scripts/gen_cert.py --cn server --out certs/server_cert.pem --key-out certs/server_key.pem
 Creates an RSA keypair and issues an X.509 certificate signed by the root CA.
+
 """
 import os
 import argparse
