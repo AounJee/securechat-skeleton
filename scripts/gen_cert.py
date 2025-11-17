@@ -1,70 +1,40 @@
-#!/usr/bin/env python3
-"""
-gen_cert.py
-Usage:
-  python3 scripts/gen_cert.py --cn server --out certs/server_cert.pem --key-out certs/server_key.pem
-Creates an RSA keypair and issues an X.509 certificate signed by the root CA.
-
-"""
-import os
-import argparse
-from datetime import datetime, timedelta
+# scripts/gen_cert.py
+import sys, os
 from cryptography import x509
 from cryptography.x509.oid import NameOID
+from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives import hashes, serialization
 
-BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
-CERTS_DIR = os.path.join(BASE_DIR, "certs")
-CA_KEY_PATH = os.path.join(CERTS_DIR, "ca_key.pem")
-CA_CERT_PATH = os.path.join(CERTS_DIR, "ca_cert.pem")
+entity = sys.argv[1]  # "client" or "server"
 
-def create_cert(common_name: str, out_cert: str, out_key: str):
-    # load CA key and cert
-    with open(CA_KEY_PATH, "rb") as f:
-        ca_key = serialization.load_pem_private_key(f.read(), password=None)
-    with open(CA_CERT_PATH, "rb") as f:
-        ca_cert = x509.load_pem_x509_certificate(f.read())
+ca_key = serialization.load_pem_private_key(open("certs/ca_key.pem","rb").read(), None)
+ca_cert = x509.load_pem_x509_certificate(open("certs/ca_cert.pem","rb").read())
 
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-    ])
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(subject)
-        .issuer_name(ca_cert.subject)
-        .public_key(key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.utcnow())
-        .not_valid_after(datetime.utcnow() + timedelta(days=365))
-        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-        .sign(ca_key, hashes.SHA256())
-    )
+key = rsa.generate_private_key(65537,2048)
+with open(f"certs/{entity}_key.pem","wb") as f:
+    f.write(key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.NoEncryption()
+    ))
 
-    # write key
-    with open(out_key, "wb") as f:
-        f.write(key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption()
-        ))
+subject = x509.Name([
+    x509.NameAttribute(NameOID.COMMON_NAME, entity),
+])
 
-    # write certificate
-    with open(out_cert, "wb") as f:
-        f.write(cert.public_bytes(serialization.Encoding.PEM))
+cert = (
+    x509.CertificateBuilder()
+    .subject_name(subject)
+    .issuer_name(ca_cert.subject)
+    .public_key(key.public_key())
+    .serial_number(x509.random_serial_number())
+    .not_valid_before(datetime.utcnow())
+    .not_valid_after(datetime.utcnow()+timedelta(days=365))
+    .sign(ca_key, hashes.SHA256())
+)
 
-    print(f"Generated {out_cert}, {out_key}")
+with open(f"certs/{entity}_cert.pem","wb") as f:
+    f.write(cert.public_bytes(serialization.Encoding.PEM))
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cn", required=True, help="Common Name (CN) for the cert")
-    parser.add_argument("--out", required=True, help="Path to output cert PEM")
-    parser.add_argument("--key-out", required=True, help="Path to output private key PEM")
-    args = parser.parse_args()
-
-    os.makedirs(CERTS_DIR, exist_ok=True)
-    create_cert(args.cn, args.out, args.key_out)
-
-if __name__ == "__main__":
-    main()
+print(f"{entity} certificate generated.")
