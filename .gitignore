@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Secrets
+certs/*_key.pem
+certs/ca_key.pem
+
+# Logs
+transcripts/*.log
+
+# Env
+.env
+
+# Editor
+.vscode/
+.idea/
